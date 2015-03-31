@@ -106,9 +106,9 @@
 			self.addEventListener('message', function(e){
 				var reply=(/**/name/**/).apply(/**/name/**/, [e.data]);
 
-        if (!Array.isArray(reply)) {
-          reply=[reply];
-        }
+				if (!Array.isArray(reply)) {
+					reply=[reply];
+				}
 
 				self.postMessage(reply[0], reply[1]);
 				self.close();
@@ -273,11 +273,11 @@
 
 	Multithread.prototype.process = function(options){
 
-    if (getParamNames(options.worker).length>2) {
-      options.type = options.type || 'json';
-    } else {
-      options.type = options.type || 'transferrable';
-    }
+		if (getParamNames(options.worker).length>2) {
+			options.type = options.type || 'json';
+		} else {
+			options.type = options.type || 'transferrable';
+		}
 
 		var workerURL = this._prepare(options.worker, options.type);
 		var self = this;
@@ -293,15 +293,15 @@
 
 	};
 
-  var STRIP_COMMENTS = /((\/\/.*$)|(\/\*[\s\S]*?\*\/))/mg;
-  var ARGUMENT_NAMES = /([^\s,]+)/g;
-  function getParamNames(func) {
-    var fnStr = func.toString().replace(STRIP_COMMENTS, '');
-    var result = fnStr.slice(fnStr.indexOf('(')+1, fnStr.indexOf(')')).match(ARGUMENT_NAMES);
-    if(result === null)
-       result = [];
-    return result;
-  }
+	var STRIP_COMMENTS = /((\/\/.*$)|(\/\*[\s\S]*?\*\/))/mg;
+	var ARGUMENT_NAMES = /([^\s,]+)/g;
+	function getParamNames(func) {
+		var fnStr = func.toString().replace(STRIP_COMMENTS, '');
+		var result = fnStr.slice(fnStr.indexOf('(')+1, fnStr.indexOf(')')).match(ARGUMENT_NAMES);
+		if(result === null)
+			 result = [];
+		return result;
+	}
 
 	window['Multithread'] = Multithread;
 
