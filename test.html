@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <script src="multithread.js"></script>
+    <script>
+        var MT=new Multithread(navigator.hardwareConcurrency);
+
+        var test=new Uint8Array(100);
+        test[0]=10;
+
+        var incr=MT.processBuffer({
+            worker: function _incr(buffer) {
+              var test=new Uint8Array(buffer); 
+              ++test[0];
+              return test.buffer;
+            },
+            callback: function callback(buffer) {
+              var test=new Uint8Array(buffer);
+              alert(test[0]);
+
+              incr2({wesh: 'yes', test: test}, [test.buffer]);
+
+            },
+            onerror: function(){
+              console.log(arguments);
+            }
+        });
+        
+        var incr2=MT.process({
+            worker: function _incr(obj,transferrable) {
+              var test=obj.test; 
+              ++test[0];
+              return [obj,transferrable];
+            },
+            callback: function callback(obj) {
+              alert(obj.wesh+' '+obj.test[0]);
+            },
+            onerror: function(){
+              console.log(arguments);
+            }
+        });
+
+        incr(test.buffer);
+
+    </script>
+  </head>
+  <body>
+  </body>
+</html>

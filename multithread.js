@@ -92,7 +92,24 @@
 				self.postMessage(buffer, [buffer]);
 				self.close();
 			})
+		},
+		buffer: function() {
+			var /**/name/**/ = (/**/func/**/);
+			self.addEventListener('message', function(e){
+				var buffer=(/**/name/**/).apply(/**/name/**/, [e.data]);
+				self.postMessage(buffer, [buffer]);
+				self.close();
+			})
+		},
+		transferrable: function(){
+			var /**/name/**/ = (/**/func/**/);
+			self.addEventListener('message', function(e){
+				var reply=(/**/name/**/).apply(/**/name/**/, [e.data]);
+				self.postMessage(reply[0], reply[1]);
+				self.close();
+			})
 		}
+
 	};
 
 	Multithread.prototype._encode = {
@@ -164,40 +181,58 @@
 		},
 	};
 
-	Multithread.prototype._execute = function(resource, args, type, callback) {
+	Multithread.prototype._execute = function(options){
 		if(!this._activeThreads) {
 			this._debug.start = (new Date).valueOf();
 		}
 		if(this._activeThreads < this.threads) {
 			this._activeThreads++;
 			var t = (new Date()).valueOf();
-			var worker = new Worker(resource);
-			var buffer = this._encode[type](args);
-			var decode = this._decode[type];
+			var worker = new Worker(options.url);
+			var msg = this._encode[options.type] ? this._encode[options.type](options.args) : options.args[0];
+			var decode = this._decode[options.type];
 			var self = this;
-			if(type==='JSON') {
-				var listener = function(e) {
-					callback.call(self, decode(e.data));
-					self.ready();
-				};
-			} else {
-				var listener = function(e) {
-					callback.apply(self, decode(e.data));
-					self.ready();
-				};
+			var onmessage;
+
+			switch(options.type){
+
+				case'JSON':
+					onmessage = function(e){
+						options.callback.call(self, decode(e.data));
+						self.ready();
+					};
+					break;
+
+				default:
+					onmessage = function(e){
+						options.callback.apply(self, decode ? decode(e.data) : [e.data]);
+						self.ready();
+					};
+					break;
 			}
-			worker.addEventListener('message', listener);
-			worker.postMessage(buffer, [buffer]);
+
+			if (options.onerror) {
+				worker.addEventListener('error', options.onerror);
+			}
+
+			worker.addEventListener('message', options.onmessage || onmessage);
+
+			if (options.type == 'transferrable') {
+				worker.postMessage(msg, options.args[1]);
+			} else {
+				worker.postMessage(msg, [msg]);
+			}
+
 		} else {
 			this._queueSize++;
-			this._queue.push([resource, args, type, callback]);
+			this._queue.push(options);
 		}
 	};
 
 	Multithread.prototype.ready = function() {
 		this._activeThreads--;
 		if(this._queueSize) {
-			this._execute.apply(this, this._queue.shift());
+			this._execute.apply(this, [this._queue.shift()]);
 			this._queueSize--;
 		} else if(!this._activeThreads) {
 			this._debug.end = (new Date).valueOf();
@@ -205,15 +240,15 @@
 		}
 	};
 
-	Multithread.prototype._prepare = function(fn, type) {
+	Multithread.prototype._prepare=function(worker, type){
 
-		fn = fn;
+		worker=worker; //??
 
-		var name = fn.name;
-		var fnStr = fn.toString();
+		var name = worker.name;
+		var workerString = worker.toString();
 		if(!name) {
 			name = '$' + ((Math.random()*10)|0);
-			while (fnStr.indexOf(name) !== -1) {
+			while (workerString.indexOf(name) !== -1) {
 				name += ((Math.random()*10)|0);
 			}
 		}
@@ -223,43 +258,91 @@
 			.replace(/^.*?[\n\r]+/gi, '')
 			.replace(/\}[\s]*$/, '')
 			.replace(/\/\*\*\/name\/\*\*\//gi, name)
-			.replace(/\/\*\*\/func\/\*\*\//gi, fnStr);
+			.replace(/\/\*\*\/func\/\*\*\//gi, workerString);
 
-		var resource = URL.createObjectURL(new Blob([script], {type: 'text/javascript'}));
+		var workerURL = URL.createObjectURL(new Blob([script], {type:'text/javascript'}));
 
-		return resource;
+		return workerURL;
 
 	};
 
-	Multithread.prototype.process = function(fn, callback) {
+	Multithread.prototype.process = function(options){
 
-		var resource = this._prepare(fn, 'JSON');
+		var workerURL = this._prepare(options.worker, 'transferrable');
 		var self = this;
 
-		return function() {
-			self._execute(resource, [].slice.call(arguments), 'JSON', callback)
+		return function(){
+			self._execute({
+				url: workerURL,
+				args: Array.prototype.slice.call(arguments),
+				type: 'transferrable',
+				callback: options.callback
+			});
 		};
 
 	};
 
-	Multithread.prototype.processInt32 = function(fn, callback) {
+	Multithread.prototype.processJSON = function(options){
 
-		var resource = this._prepare(fn, 'Int32');
+		var workerURL = this._prepare(options.worker, 'JSON');
 		var self = this;
 
-		return function() {
-			self._execute(resource, [].slice.call(arguments), 'Int32', callback)
+		return function(){
+			self._execute({
+				url: workerURL,
+				args: Array.prototype.slice.call(arguments),
+				type: 'JSON',
+				callback: options.callback
+
+			});
 		};
 
 	};
 
-	Multithread.prototype.processFloat64 = function(fn, callback) {
+	Multithread.prototype.processInt32 = function(options){
 
-		var resource = this._prepare(fn, 'Float64');
+		var workerURL = this._prepare(options.worker, 'Int32');
 		var self = this;
 
 		return function() {
-			self._execute(resource, [].slice.call(arguments), 'Float64', callback)
+			self._execute({
+				url: workerURL,
+				args: Array.prototype.slice.call(arguments),
+				type: 'Int32',
+				callback: options.callback
+			});
+		};
+
+	};
+
+	Multithread.prototype.processFloat64 = function(options){
+
+		var workerURL = this._prepare(options.worker, 'Float64');
+		var self = this;
+
+		return function() {
+			self._execute({
+				url: workerURL,
+				args: Array.prototype.slice.call(arguments),
+				type: 'Float64',
+				callback: options.callback
+			});
+		};
+
+	};
+
+	Multithread.prototype.processBuffer = function(options){
+
+		var workerURL = this._prepare(options.worker, 'buffer');
+		var self = this;
+
+		return function() {
+			self._execute({
+				url: workerURL,
+				args: Array.prototype.slice.call(arguments),
+				type: 'buffer',
+				callback: options.callback
+			});
 		};
 
 	};
