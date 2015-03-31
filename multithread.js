@@ -22,7 +22,7 @@
 	}
 
 	Multithread.prototype._worker = {
-		JSON: function() {
+		json: function() {
 			var /**/name/**/ = (/**/func/**/);
 			self.addEventListener('message', function(e) {
 				var data = e.data;
@@ -105,6 +105,11 @@
 			var /**/name/**/ = (/**/func/**/);
 			self.addEventListener('message', function(e){
 				var reply=(/**/name/**/).apply(/**/name/**/, [e.data]);
+
+        if (!Array.isArray(reply)) {
+          reply=[reply];
+        }
+
 				self.postMessage(reply[0], reply[1]);
 				self.close();
 			})
@@ -113,7 +118,7 @@
 	};
 
 	Multithread.prototype._encode = {
-		JSON: function(args) {
+		json: function(args) {
 			try {
 				var data = JSON.stringify(args);
 			} catch(e) {
@@ -148,7 +153,7 @@
 	};
 
 	Multithread.prototype._decode = {
-		JSON: function(data) {
+		json: function(data) {
 			var view = new DataView(data);
 			var len = data.byteLength;
 			var str = Array(len);
@@ -196,7 +201,7 @@
 
 			switch(options.type){
 
-				case'JSON':
+				case'json':
 					onmessage = function(e){
 						options.callback.call(self, decode(e.data));
 						self.ready();
@@ -268,84 +273,35 @@
 
 	Multithread.prototype.process = function(options){
 
-		var workerURL = this._prepare(options.worker, 'transferrable');
+    if (getParamNames(options.worker).length>2) {
+      options.type = options.type || 'json';
+    } else {
+      options.type = options.type || 'transferrable';
+    }
+
+		var workerURL = this._prepare(options.worker, options.type);
 		var self = this;
 
 		return function(){
 			self._execute({
 				url: workerURL,
 				args: Array.prototype.slice.call(arguments),
-				type: 'transferrable',
+				type: options.type,
 				callback: options.callback
 			});
 		};
 
 	};
 
-	Multithread.prototype.processJSON = function(options){
-
-		var workerURL = this._prepare(options.worker, 'JSON');
-		var self = this;
-
-		return function(){
-			self._execute({
-				url: workerURL,
-				args: Array.prototype.slice.call(arguments),
-				type: 'JSON',
-				callback: options.callback
-
-			});
-		};
-
-	};
-
-	Multithread.prototype.processInt32 = function(options){
-
-		var workerURL = this._prepare(options.worker, 'Int32');
-		var self = this;
-
-		return function() {
-			self._execute({
-				url: workerURL,
-				args: Array.prototype.slice.call(arguments),
-				type: 'Int32',
-				callback: options.callback
-			});
-		};
-
-	};
-
-	Multithread.prototype.processFloat64 = function(options){
-
-		var workerURL = this._prepare(options.worker, 'Float64');
-		var self = this;
-
-		return function() {
-			self._execute({
-				url: workerURL,
-				args: Array.prototype.slice.call(arguments),
-				type: 'Float64',
-				callback: options.callback
-			});
-		};
-
-	};
-
-	Multithread.prototype.processBuffer = function(options){
-
-		var workerURL = this._prepare(options.worker, 'buffer');
-		var self = this;
-
-		return function() {
-			self._execute({
-				url: workerURL,
-				args: Array.prototype.slice.call(arguments),
-				type: 'buffer',
-				callback: options.callback
-			});
-		};
-
-	};
+  var STRIP_COMMENTS = /((\/\/.*$)|(\/\*[\s\S]*?\*\/))/mg;
+  var ARGUMENT_NAMES = /([^\s,]+)/g;
+  function getParamNames(func) {
+    var fnStr = func.toString().replace(STRIP_COMMENTS, '');
+    var result = fnStr.slice(fnStr.indexOf('(')+1, fnStr.indexOf(')')).match(ARGUMENT_NAMES);
+    if(result === null)
+       result = [];
+    return result;
+  }
 
 	window['Multithread'] = Multithread;
 

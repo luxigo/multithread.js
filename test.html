@@ -8,39 +8,84 @@
         var test=new Uint8Array(100);
         test[0]=10;
 
-        var incr=MT.processBuffer({
+        // with type='buffer' you can specify a buffer that will be
+        // transferred without being copied (faster)
+        var incr=MT.process({
+            type: 'buffer',
             worker: function _incr(buffer) {
               var test=new Uint8Array(buffer); 
               ++test[0];
               return test.buffer;
             },
             callback: function callback(buffer) {
-              var test=new Uint8Array(buffer);
-              alert(test[0]);
-
-              incr2({wesh: 'yes', test: test}, [test.buffer]);
+              test=new Uint8Array(buffer);
+              console.log(test[0]);
 
             },
             onerror: function(){
               console.log(arguments);
             }
         });
-        
-        var incr2=MT.process({
-            worker: function _incr(obj,transferrable) {
-              var test=obj.test; 
+
+        // with type="transferrable" (default) you can specify an object,
+        // plus a an optional list of objects to transfer
+        var obj={
+          wesh: 'yes',
+          test: test
+        };
+        MT.process({
+            worker: function _incr(_obj,transferrable) {
+              var test=_obj.test; 
               ++test[0];
-              return [obj,transferrable];
+              _obj.wesh+=' !';
+              return [_obj,transferrable];
             },
-            callback: function callback(obj) {
-              alert(obj.wesh+' '+obj.test[0]);
+            callback: function callback(_obj) {
+              console.log(_obj.wesh+' '+_obj.test[0]);
+              incr(_obj.test.buffer);
+              console.log('the original obj.wesh has not be modified: ', obj.wesh);
             },
             onerror: function(){
               console.log(arguments);
             }
-        });
+        })(obj, [ test.buffer ]);
 
-        incr(test.buffer);
+        console.log('cannot access test in main thread anymore: ', obj.test);
+       
+        // ... or a single object 
+        MT.process({
+          worker: function add(_obj) {
+            return {value: _obj.a-_obj.b-_obj.c};
+          },
+          callback: function show(result) {
+            console.log(result);
+          }
+        })({ a: 1, b: 2, c: 3 });
+
+        // ... any kind of object
+        MT.process({
+          worker: function add(a) {
+            return a+a;
+          },
+          callback: function show(result) {
+            console.log(result);
+          }
+        })(1);
+
+        // To send more than 1 parameter without using an object,
+        // you must set 'type' to 'json'
+        // (better working with an object as above I guess)
+        MT.process({
+          // When the worker is defined with more than 2 parameters, default type is 'json'
+          // type: 'json', 
+          worker: function add(a,b,c) {
+            return a+b+c; // or eg {value: a+b+c}; 
+          },
+          callback: function show(result) {
+            console.log(result);
+          }
+        })(1, 2, 3);
+
 
     </script>
   </head>
