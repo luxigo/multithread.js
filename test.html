@@ -27,18 +27,18 @@
             }
         });
 
-        // with type="transferrable" (default) you can specify an object,
+        // with type="transferable" (default) you can specify an object,
         // plus a an optional list of objects to transfer
         var obj={
           wesh: 'yes',
           test: test
         };
         MT.process({
-            worker: function _incr(_obj,transferrable) {
+            worker: function _incr(_obj,transferable) {
               var test=_obj.test; 
               ++test[0];
               _obj.wesh+=' !';
-              return [_obj,transferrable];
+              return [_obj,transferable];
             },
             callback: function callback(_obj) {
               console.log(_obj.wesh+' '+_obj.test[0]);

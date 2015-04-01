@@ -10,7 +10,7 @@
 	}
 
 	function Multithread(threads) {
-		this.threads = Math.max(2, threads | 0);
+		this.threads = Math.max(navigator.hardwareConcurrency || 2, threads | 0);
 		this._queue = [];
 		this._queueSize = 0;
 		this._activeThreads = 0;
@@ -101,7 +101,7 @@
 				self.close();
 			})
 		},
-		transferrable: function(){
+		transferable: function(){
 			var /**/name/**/ = (/**/func/**/);
 			self.addEventListener('message', function(e){
 				var reply=(/**/name/**/).apply(/**/name/**/, [e.data]);
@@ -222,7 +222,7 @@
 
 			worker.addEventListener('message', options.onmessage || onmessage);
 
-			if (options.type == 'transferrable') {
+			if (options.type == 'transferable') {
 				worker.postMessage(msg, options.args[1]);
 			} else {
 				worker.postMessage(msg, [msg]);
@@ -246,8 +246,6 @@
 	};
 
 	Multithread.prototype._prepare=function(worker, type){
-
-		worker=worker; //??
 
 		var name = worker.name;
 		var workerString = worker.toString();
@@ -276,7 +274,7 @@
 		if (getParamNames(options.worker).length>2) {
 			options.type = options.type || 'json';
 		} else {
-			options.type = options.type || 'transferrable';
+			options.type = options.type || 'transferable';
 		}
 
 		var workerURL = this._prepare(options.worker, options.type);
