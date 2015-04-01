@@ -27,8 +27,12 @@
 	// web worker templates used by _prepare
 	Multithread.prototype._workerTemplate = {
 		json: function() {
+
 			var /**/name/**/ = (/**/func/**/);
+
 			self.addEventListener('message', function(e) {
+
+				// decode message
 				var data = e.data;
 				var view = new DataView(data);
 				var len = data.byteLength;
@@ -37,7 +41,11 @@
 					str[i] = String.fromCharCode(view.getUint8(i));
 				}
 				var args = JSON.parse(str.join(''));
+
+				// process message
 				var value = (/**/name/**/).apply(/**/name/**/, args);
+
+				// process response
 				try {
 					data = JSON.stringify(value);
 				} catch(e) {
@@ -49,6 +57,9 @@
 				for (i=0;i<len;i++) {
 					view.setUint8(i, data.charCodeAt(i) & 255);
 				}
+
+				// send response and kill worker
+				self.continue=false;
 				self.postMessage(buffer, [buffer]);
 				self.close();
 			})
@@ -72,6 +83,7 @@
 				for (i=0;i<len;i++) {
 					view.setInt32(i*4, value[i]);
 				}
+				self.continue=false;
 				self.postMessage(buffer, [buffer]);
 				self.close();
 			})
@@ -95,6 +107,7 @@
 				for (i=0;i<len;i++) {
 					view.setFloat64(i*8, value[i]);
 				}
+				self.continue=false;
 				self.postMessage(buffer, [buffer]);
 				self.close();
 			})
@@ -104,6 +117,7 @@
 			var /**/name/**/ = (/**/func/**/);
 			self.addEventListener('message', function(e){
 				var buffer=(/**/name/**/).apply(/**/name/**/, [e.data]);
+				self.continue=false;
 				self.postMessage(buffer, [buffer]);
 				self.close();
 			})
@@ -116,6 +130,7 @@
 				if (!Array.isArray(reply)) {
 					reply=[reply];
 				}
+				self.continue=false;
 				self.postMessage(reply[0], reply[1]);
 				self.close();
 			})
@@ -222,17 +237,20 @@
 		worker.callback=options.callback;
 		worker.type=options.type;
 		worker.decode=multithread._argsDecode[worker.type];
+		worker.continue=true;
 
 		// encode worker arguments if needed
 		var msg = multithread._argsEncode[worker.type] ? multithread._argsEncode[worker.type](options.args) : options.args[0];
 
 		// setup message event handler in main thread for this worker
 		var onmessage=options.onmessage;
-		if (!onmessage) {  
+		if (!onmessage) {
 			onmessage = function(e){
 				var worker=this;
 				worker.callback.apply(worker, worker.decode ? [worker.decode(e.data)] : [e.data]);
-				worker.multithread.ready();
+				if (!worker.continue) {
+					worker.multithread.ready();
+				}
 			};
 		}
 		worker.addEventListener('message', onmessage);

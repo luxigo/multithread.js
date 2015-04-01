@@ -35,10 +35,18 @@
         };
         MT.process({
             worker: function _incr(_obj,transferable) {
+
               var test=_obj.test; 
               ++test[0];
               _obj.wesh+=' !';
+
+              // you can post messages that will be received by callback
+              self.postMessage({test: [1234], wesh: 4*5*3});
+              self.postMessage({test: [4321], wesh: 4*5*3});
+
+              // only the last message (function return value)  will close the thread
               return [_obj,transferable];
+
             },
             callback: function callback(_obj) {
               console.log(_obj.wesh+' '+_obj.test[0]);
